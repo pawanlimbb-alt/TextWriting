@@ -1,0 +1,1115 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>MyHand – turn typed text into your own handwriting</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=DM+Sans:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+      :root {
+        --ink: #1f3fbf;
+        --bg: #eef1f6;
+        --card: #fff;
+        --line: #d5dbe6;
+        --text: #1b2230;
+        --mute: #5d6778;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          16px/1.5 "DM Sans",
+          system-ui,
+          sans-serif;
+      }
+      header {
+        padding: 28px 16px 8px;
+        max-width: 1000px;
+        margin: auto;
+      }
+      h1 {
+        font:
+          600 52px/1 Caveat,
+          cursive;
+        color: var(--ink);
+        margin: 0;
+      }
+      header p {
+        margin: 6px 0 0;
+        color: var(--mute);
+        max-width: 56ch;
+      }
+      main {
+        max-width: 1000px;
+        margin: auto;
+        padding: 12px 16px 60px;
+      }
+      .tabs {
+        display: flex;
+        gap: 8px;
+        margin: 14px 0;
+      }
+      .tabs button {
+        flex: 1;
+        padding: 12px;
+        border: 1px solid var(--line);
+        background: var(--card);
+        border-radius: 10px;
+        font: 500 15px inherit;
+        font-family: inherit;
+        cursor: pointer;
+      }
+      .tabs button.on {
+        background: var(--ink);
+        color: #fff;
+        border-color: var(--ink);
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 14px;
+      }
+      h2 {
+        font-size: 17px;
+        margin: 0 0 4px;
+      }
+      .hint {
+        color: var(--mute);
+        font-size: 14px;
+        margin: 0 0 12px;
+      }
+      #grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .ch {
+        width: 40px;
+        height: 40px;
+        border: 1px solid var(--line);
+        background: #fff;
+        border-radius: 8px;
+        font:
+          600 22px Caveat,
+          cursive;
+        cursor: pointer;
+        position: relative;
+        color: var(--text);
+      }
+      .ch.has {
+        background: #e6ecff;
+        border-color: #9fb3f0;
+      }
+      .ch.has::after {
+        content: attr(data-n);
+        position: absolute;
+        top: -6px;
+        right: -5px;
+        background: var(--ink);
+        color: #fff;
+        font: 700 10px "DM Sans";
+        border-radius: 9px;
+        padding: 1px 5px;
+      }
+      .ch.on {
+        outline: 2px solid var(--ink);
+        outline-offset: 1px;
+      }
+      .work {
+        display: flex;
+        gap: 18px;
+        flex-wrap: wrap;
+        align-items: flex-start;
+      }
+      .padwrap {
+        position: relative;
+        width: min(100%, 320px);
+        aspect-ratio: 4/3;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .padwrap i {
+        position: absolute;
+        left: 0;
+        right: 0;
+        border-top: 1px dashed #a9bde6;
+      }
+      .padwrap i.b {
+        border-top: 2px solid #e48a8a;
+      }
+      #pad {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        touch-action: none;
+        cursor: crosshair;
+      }
+      .side {
+        flex: 1;
+        min-width: 220px;
+      }
+      #thumbs {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin: 8px 0;
+        min-height: 44px;
+      }
+      #thumbs img {
+        height: 44px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        cursor: pointer;
+        background: #fff;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+      }
+      button.btn {
+        padding: 10px 16px;
+        border-radius: 9px;
+        border: 1px solid var(--line);
+        background: #fff;
+        font:
+          500 15px "DM Sans",
+          sans-serif;
+        cursor: pointer;
+      }
+      button.btn.p {
+        background: var(--ink);
+        color: #fff;
+        border-color: var(--ink);
+      }
+      button.btn:focus-visible,
+      .ch:focus-visible,
+      .tabs button:focus-visible {
+        outline: 3px solid #8fa5f5;
+        outline-offset: 2px;
+      }
+      textarea {
+        width: 100%;
+        min-height: 160px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px;
+        font:
+          16px/1.5 "DM Sans",
+          sans-serif;
+        resize: vertical;
+      }
+      .ctl {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 12px;
+        margin-top: 12px;
+      }
+      .ctl label {
+        font-size: 14px;
+        color: var(--mute);
+        display: block;
+      }
+      .ctl input[type="range"],
+      .ctl select {
+        width: 100%;
+      }
+      .ctl select {
+        padding: 8px;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+        background: #fff;
+      }
+      .ctl input[type="color"] {
+        width: 100%;
+        height: 38px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 2px;
+        background: #fff;
+      }
+      #pages {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        align-items: center;
+        margin-top: 8px;
+      }
+      #pages canvas {
+        width: min(100%, 794px);
+        height: auto;
+        box-shadow: 0 6px 24px rgba(20, 30, 60, 0.18);
+        background: #fff;
+      }
+      #toast {
+        position: fixed;
+        left: 50%;
+        bottom: 22px;
+        transform: translateX(-50%);
+        background: #1b2230;
+        color: #fff;
+        padding: 10px 16px;
+        border-radius: 10px;
+        font-size: 14px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s;
+        z-index: 9;
+      }
+      #toast.on {
+        opacity: 1;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #toast {
+          transition: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>MyHand</h1>
+      <p>
+        Write each letter once in your own hand. Then type anything and get a
+        full page that looks like you wrote it.
+      </p>
+    </header>
+    <main>
+      <div class="tabs" role="tablist">
+        <button id="t1" class="on" role="tab">1. Write your letters</button>
+        <button id="t2" role="tab">2. Generate pages</button>
+      </div>
+
+      <section id="p1">
+        <div class="card">
+          <h2>Pick a character</h2>
+          <p class="hint">
+            Start with a–z. Two or three versions of each letter make the result
+            look natural. Missing characters fall back to a handwriting-style
+            font. <span id="count"></span>
+          </p>
+          <div id="grid"></div>
+        </div>
+        <div class="card">
+          <h2>Write “<span id="curLabel">a</span>”</h2>
+          <p class="hint">
+            Sit letters on the red line. Tall letters reach the top dashed line,
+            small letters the middle one, and g, y, p drop below.
+          </p>
+          <div class="work">
+            <div class="padwrap">
+              <i style="top: 20%"></i><i style="top: 45%"></i
+              ><i class="b" style="top: 70%"></i>
+              <canvas id="pad" width="640" height="480"></canvas>
+            </div>
+            <div class="side">
+              <strong>Saved versions</strong>
+              <span class="hint">(tap one to remove)</span>
+              <div id="thumbs"></div>
+              <div class="row">
+                <button class="btn" id="clearAll">
+                  Clear all saved versions
+                </button>
+              </div>
+              <div class="row">
+                <button class="btn p" id="saveV">Save version</button>
+                <button class="btn" id="clear">Clear</button>
+              </div>
+              <div class="row">
+                <button class="btn" id="exp">Export my handwriting</button>
+                <button class="btn" id="imp">Import</button>
+                <input type="file" id="file" accept="application/json" hidden />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h2>Import from a photo</h2>
+          <p class="hint">
+            Ruled notebook paper is fine. Write one set per line with gaps
+            between letters, then take a straight, well-lit photo. Avoid joining
+            letters together.
+          </p>
+          <div class="row">
+            <select id="photoSet">
+              <option value="abcdefghijklmnopqrstuvwxyz">Lowercase a–z</option>
+              <option value="ABCDEFGHIJKLMNOPQRSTUVWXYZ">Uppercase A–Z</option>
+              <option value="0123456789">Digits 0–9</option>
+            </select>
+            <button class="btn p" id="photoBtn">Choose photo</button>
+            <input type="file" id="photoFile" accept="image/*" hidden />
+          </div>
+        </div>
+      </section>
+
+      <section id="p2" hidden>
+        <div class="card">
+          <h2>Your text</h2>
+          <textarea id="txt">
+Dear friend,
+
+This page was written by a computer, but every letter comes from my own handwriting. No two letters look exactly the same.
+
+Regards,
+Pawan</textarea
+          >
+          <div class="ctl">
+            <div>
+              <label>Paper</label
+              ><select id="paper">
+                <option value="ruled">Ruled</option>
+                <option value="grid">Grid</option>
+                <option value="blank">Blank</option>
+              </select>
+            </div>
+            <div>
+              <label>Ink colour</label
+              ><input type="color" id="ink" value="#1a237e" />
+            </div>
+            <div>
+              <label>Letter size <b id="vSize">34</b></label
+              ><input type="range" id="size" min="20" max="56" value="34" />
+            </div>
+            <div>
+              <label>Line height <b id="vLh">44</b></label
+              ><input type="range" id="lh" min="30" max="80" value="44" />
+            </div>
+            <div>
+              <label>Letter spacing <b id="vSp">2</b></label
+              ><input type="range" id="sp" min="-4" max="12" value="2" />
+            </div>
+            <div>
+              <label>Natural wobble <b id="vJit">40</b></label
+              ><input type="range" id="jit" min="0" max="100" value="40" />
+            </div>
+            <div>
+              <label
+                ><input type="checkbox" id="mline" checked /> Red margin line
+                (ruled)</label
+              >
+            </div>
+          </div>
+          <div class="row">
+            <button class="btn p" id="gen">Generate pages</button>
+            <button class="btn" id="png">Download PNG</button>
+            <button class="btn" id="pdf">Download PDF</button>
+          </div>
+        </div>
+        <div id="pages"></div>
+      </section>
+    </main>
+    <div id="toast" role="status"></div>
+
+    <script>
+      const $ = (s) => document.querySelector(s);
+      const CHARS = [
+        ..."abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,!?-'\"():;",
+      ];
+      const KEY = "myhand.glyphs.v1";
+      const GW = 640,
+        GH = 480,
+        BASE = 336,
+        CAPH = 240; // pad size, baseline y, cap height (internal px)
+      const PW = 794,
+        PH = 1123,
+        S = 2; // A4 at 96dpi, rendered at 2x
+      let glyphs = {},
+        imgs = {},
+        cur = "a",
+        out = [];
+      try {
+        glyphs = JSON.parse(localStorage.getItem(KEY)) || {};
+      } catch (e) {}
+
+      function toast(m, ms = 2200) {
+        const t = $("#toast");
+        t.textContent = m;
+        t.classList.add("on");
+        clearTimeout(toast.id);
+        toast.id = setTimeout(() => t.classList.remove("on"), ms);
+      }
+      function persist() {
+        tint.cache.clear();
+        try {
+          localStorage.setItem(KEY, JSON.stringify(glyphs));
+        } catch (e) {
+          toast("Browser storage full. Export your handwriting.");
+        }
+      }
+      function loadImg(src) {
+        return new Promise((r) => {
+          const i = new Image();
+          i.onload = () => r(i);
+          i.onerror = () => r(null);
+          i.src = src;
+        });
+      }
+      async function loadAll() {
+        imgs = {};
+        for (const c in glyphs)
+          imgs[c] = (await Promise.all(glyphs[c].map(loadImg))).filter(Boolean);
+      }
+
+      /* ---------- Tabs ---------- */
+      function tab(n) {
+        $("#p1").hidden = n !== 1;
+        $("#p2").hidden = n !== 2;
+        $("#t1").classList.toggle("on", n === 1);
+        $("#t2").classList.toggle("on", n === 2);
+      }
+      $("#t1").onclick = () => tab(1);
+      $("#t2").onclick = () => tab(2);
+
+      /* ---------- Capture ---------- */
+      function renderGrid() {
+        const g = $("#grid");
+        g.innerHTML = "";
+        CHARS.forEach((c) => {
+          const n = (glyphs[c] || []).length,
+            b = document.createElement("button");
+          b.textContent = c;
+          b.className = "ch" + (c === cur ? " on" : "") + (n ? " has" : "");
+          b.dataset.n = n;
+          b.setAttribute(
+            "aria-label",
+            "Character " + c + ", " + n + " versions",
+          );
+          b.onclick = () => {
+            cur = c;
+            renderGrid();
+            renderThumbs();
+            clearPad();
+          };
+          g.append(b);
+        });
+        $("#count").textContent =
+          CHARS.filter((c) => glyphs[c]).length +
+          " of " +
+          CHARS.length +
+          " done.";
+      }
+      function renderThumbs() {
+        $("#curLabel").textContent = cur;
+        const t = $("#thumbs");
+        t.innerHTML = "";
+        (glyphs[cur] || []).forEach((d, i) => {
+          const im = new Image();
+          im.src = d;
+          im.alt = "Version " + (i + 1);
+          im.title = "Remove";
+          im.onclick = () => {
+            glyphs[cur].splice(i, 1);
+            imgs[cur].splice(i, 1);
+            if (!glyphs[cur].length) {
+              delete glyphs[cur];
+              delete imgs[cur];
+            }
+            persist();
+            renderGrid();
+            renderThumbs();
+          };
+          t.append(im);
+        });
+      }
+
+      const pad = $("#pad"),
+        cx = pad.getContext("2d");
+      cx.lineCap = cx.lineJoin = "round";
+      cx.lineWidth = 9;
+      cx.strokeStyle = cx.fillStyle = "#000";
+      let drawing = false,
+        last = null;
+      const pos = (e) => {
+        const r = pad.getBoundingClientRect();
+        return {
+          x: ((e.clientX - r.left) * GW) / r.width,
+          y: ((e.clientY - r.top) * GH) / r.height,
+        };
+      };
+      pad.onpointerdown = (e) => {
+        pad.setPointerCapture(e.pointerId);
+        drawing = true;
+        last = pos(e);
+        cx.beginPath();
+        cx.arc(last.x, last.y, 4.5, 0, 7);
+        cx.fill();
+      };
+      pad.onpointermove = (e) => {
+        if (!drawing) return;
+        const p = pos(e);
+        cx.beginPath();
+        cx.moveTo(last.x, last.y);
+        cx.lineTo(p.x, p.y);
+        cx.stroke();
+        last = p;
+      };
+      pad.onpointerup = pad.onpointercancel = () => {
+        drawing = false;
+      };
+      function clearPad() {
+        cx.clearRect(0, 0, GW, GH);
+      }
+      $("#clear").onclick = clearPad;
+      $("#clearAll").onclick = () => {
+        if (!Object.keys(glyphs).length)
+          return toast("There are no saved versions to clear");
+        if (
+          !confirm(
+            "Clear all saved handwriting versions? This cannot be undone.",
+          )
+        )
+          return;
+        glyphs = {};
+        imgs = {};
+        persist();
+        renderGrid();
+        renderThumbs();
+        toast("All saved versions cleared");
+      };
+
+      $("#saveV").onclick = async () => {
+        const d = cx.getImageData(0, 0, GW, GH).data;
+        let x0 = GW,
+          x1 = -1;
+        for (let y = 0; y < GH; y++)
+          for (let x = 0; x < GW; x++)
+            if (d[(y * GW + x) * 4 + 3] > 20) {
+              if (x < x0) x0 = x;
+              if (x > x1) x1 = x;
+            }
+        if (x1 < 0) return toast("Write the character first");
+        x0 = Math.max(0, x0 - 8);
+        x1 = Math.min(GW - 1, x1 + 8); // crop sideways only, keep full height so baseline is preserved
+        const t = document.createElement("canvas");
+        t.width = x1 - x0 + 1;
+        t.height = GH;
+        t.getContext("2d").drawImage(
+          pad,
+          x0,
+          0,
+          t.width,
+          GH,
+          0,
+          0,
+          t.width,
+          GH,
+        );
+        const url = t.toDataURL("image/png"),
+          im = await loadImg(url);
+        (glyphs[cur] = glyphs[cur] || []).push(url);
+        (imgs[cur] = imgs[cur] || []).push(im);
+        persist();
+        clearPad();
+        if (glyphs[cur].length >= 3) {
+          const n = CHARS[(CHARS.indexOf(cur) + 1) % CHARS.length];
+          cur = n;
+        }
+        renderGrid();
+        renderThumbs();
+      };
+
+      function dl(blob, name) {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = name;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+      }
+      $("#exp").onclick = () =>
+        dl(
+          new Blob([JSON.stringify(glyphs)], { type: "application/json" }),
+          "my-handwriting.json",
+        );
+      $("#imp").onclick = () => $("#file").click();
+      $("#file").onchange = async (e) => {
+        try {
+          const data = JSON.parse(await e.target.files[0].text());
+          for (const c in data) if (Array.isArray(data[c])) glyphs[c] = data[c];
+          persist();
+          await loadAll();
+          renderGrid();
+          renderThumbs();
+          toast("Handwriting imported");
+        } catch (err) {
+          toast("That file is not a MyHand export");
+        }
+      };
+
+      /* ---------- Generate ---------- */
+      const rnd = () => Math.random() * 2 - 1;
+      const mctx = document.createElement("canvas").getContext("2d");
+      function tint(c, i, color) {
+        const k = c + "|" + i + "|" + color;
+        if (tint.cache.has(k)) return tint.cache.get(k);
+        const im = imgs[c][i],
+          t = document.createElement("canvas");
+        t.width = im.width;
+        t.height = im.height;
+        const g = t.getContext("2d");
+        g.drawImage(im, 0, 0);
+        g.globalCompositeOperation = "source-in";
+        g.fillStyle = color;
+        g.fillRect(0, 0, t.width, t.height);
+        tint.cache.set(k, t);
+        return t;
+      }
+      tint.cache = new Map();
+
+      function paperBg(g, o) {
+        g.fillStyle = "#fdfdfc";
+        g.fillRect(0, 0, PW, PH);
+        g.lineWidth = 1;
+        if (o.paper === "ruled") {
+          g.strokeStyle = "#b9cdea";
+          for (let y = 64 + o.lh; y < PH - 30; y += o.lh) {
+            g.beginPath();
+            g.moveTo(0, y + 0.5);
+            g.lineTo(PW, y + 0.5);
+            g.stroke();
+          }
+          if (o.margin) {
+            g.strokeStyle = "#e58f8f";
+            g.beginPath();
+            g.moveTo(78.5, 0);
+            g.lineTo(78.5, PH);
+            g.stroke();
+          }
+        }
+        if (o.paper === "grid") {
+          g.strokeStyle = "#d3deee";
+          for (let x = 0; x < PW; x += 28) {
+            g.beginPath();
+            g.moveTo(x + 0.5, 0);
+            g.lineTo(x + 0.5, PH);
+            g.stroke();
+          }
+          for (let y = 0; y < PH; y += 28) {
+            g.beginPath();
+            g.moveTo(0, y + 0.5);
+            g.lineTo(PW, y + 0.5);
+            g.stroke();
+          }
+        }
+      }
+      function newPage(o) {
+        const c = document.createElement("canvas");
+        c.width = PW * S;
+        c.height = PH * S;
+        const g = c.getContext("2d");
+        g.scale(S, S);
+        paperBg(g, o);
+        out.push(c);
+        $("#pages").append(c);
+        return g;
+      }
+
+      function makeItem(ch, o, k, lastV) {
+        const v = imgs[ch];
+        if (v && v.length) {
+          let i = Math.floor(Math.random() * v.length);
+          if (v.length > 1 && i === lastV[ch]) i = (i + 1) % v.length; // avoid the same version twice in a row
+          lastV[ch] = i;
+          return { ch, i, w: v[i].width * k + o.sp };
+        }
+        mctx.font = `${o.size * 1.15}px Caveat,cursive`;
+        return { ch, i: -1, w: mctx.measureText(ch).width + o.sp };
+      }
+      function drawItem(g, it, x, by, o, k, drift) {
+        if (it.i < 0) {
+          g.save();
+          g.fillStyle = o.color;
+          g.font = `${o.size * 1.15}px Caveat,cursive`;
+          g.fillText(it.ch, x, by + drift);
+          g.restore();
+          return;
+        }
+        const t = tint(it.ch, it.i, o.color),
+          s = k * (1 + rnd() * 0.06 * o.j),
+          w = t.width * s,
+          h = t.height * s;
+        g.save();
+        g.globalAlpha = 1 - Math.random() * 0.18 * o.j; // ink pressure
+        g.translate(x + w / 2, by + rnd() * 2.2 * o.j + drift); // baseline shift + line drift
+        g.rotate(rnd() * 0.045 * o.j); // slight tilt
+        g.drawImage(t, -w / 2, -BASE * s, w, h);
+        g.restore();
+      }
+
+      async function generate() {
+        if (!Object.keys(imgs).length)
+          toast("No letters saved yet. Using fallback font.");
+        try {
+          await document.fonts.load("30px Caveat");
+        } catch (e) {}
+        const o = {
+          size: +$("#size").value,
+          lh: +$("#lh").value,
+          sp: +$("#sp").value,
+          j: +$("#jit").value / 100,
+          color: $("#ink").value,
+          paper: $("#paper").value,
+          margin: $("#mline").checked,
+        };
+        const k = o.size / CAPH,
+          left = o.margin && o.paper === "ruled" ? 96 : 56,
+          right = PW - 48,
+          top = 64,
+          lastV = {};
+        out = [];
+        $("#pages").innerHTML = "";
+        let g = null,
+          y = top + o.lh,
+          x = left,
+          slope = rnd() * 0.006 * o.j;
+        const nl = () => {
+          y += o.lh;
+          x = left;
+          slope = rnd() * 0.006 * o.j;
+          if (y > PH - 40) {
+            g = null;
+            y = top + o.lh;
+          }
+        };
+        for (const para of $("#txt").value.split("\n")) {
+          for (const word of para.split(/ +/)) {
+            if (!word) continue;
+            const its = [...word].map((c) => makeItem(c, o, k, lastV)),
+              ww = its.reduce((a, b) => a + b.w, 0);
+            if (x + ww > right && x > left) nl();
+            if (!g) g = newPage(o);
+            for (const it of its) {
+              drawItem(g, it, x, y - 5, o, k, (x - left) * slope);
+              x += it.w + rnd() * 1.2 * o.j;
+            }
+            x += o.size * 0.4;
+          }
+          nl();
+        }
+        if (!out.length) toast("Type some text first");
+      }
+      $("#gen").onclick = generate;
+      $("#png").onclick = () => {
+        if (!out.length) return toast("Generate pages first");
+        out.forEach((c, i) =>
+          c.toBlob((b) => dl(b, `handwriting-page-${i + 1}.png`)),
+        );
+      };
+      $("#pdf").onclick = () => {
+        if (!out.length) return toast("Generate pages first");
+        const p = new window.jspdf.jsPDF({ unit: "mm", format: "a4" });
+        out.forEach((c, i) => {
+          if (i) p.addPage();
+          p.addImage(c.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, 210, 297);
+        });
+        p.save("handwriting.pdf");
+      };
+      [
+        ["size", "vSize"],
+        ["lh", "vLh"],
+        ["sp", "vSp"],
+        ["jit", "vJit"],
+      ].forEach(
+        ([a, b]) =>
+          ($("#" + a).oninput = (e) =>
+            ($("#" + b).textContent = e.target.value)),
+      );
+
+      /* ---------- Photo import ---------- */
+      const DESC = "gjpqy",
+        TALL = "bdfhkl",
+        LOWER = "abcdefghijklmnopqrstuvwxyz";
+      const median = (a) => {
+        const s = [...a].sort((x, y) => x - y);
+        return s[s.length >> 1];
+      };
+
+      // 1. Ink mask: pixel is ink if clearly darker than its local average (handles shadows)
+      function binarize(gray, w, h) {
+        const W = w + 1,
+          I = new Float64Array(W * (h + 1)),
+          bin = new Uint8Array(w * h),
+          R = 24;
+        for (let y = 0; y < h; y++) {
+          let row = 0;
+          for (let x = 0; x < w; x++) {
+            row += gray[y * w + x];
+            I[(y + 1) * W + x + 1] = I[y * W + x + 1] + row;
+          }
+        }
+        for (let y = 0; y < h; y++) {
+          const y0 = Math.max(0, y - R),
+            y1 = Math.min(h, y + R + 1);
+          for (let x = 0; x < w; x++) {
+            const x0 = Math.max(0, x - R),
+              x1 = Math.min(w, x + R + 1);
+            const sum =
+              I[y1 * W + x1] - I[y0 * W + x1] - I[y1 * W + x0] + I[y0 * W + x0];
+            bin[y * w + x] =
+              gray[y * w + x] < (sum / ((x1 - x0) * (y1 - y0))) * 0.78 ? 1 : 0;
+          }
+        }
+        return bin;
+      }
+
+      // Remove long, thin notebook rules before component detection. Search a small
+      // range of slopes so pages photographed at a slight angle still work.
+      function removeRuledLines(bin, gray, w, h) {
+        const slopes = [-0.08, -0.06, -0.04, -0.02, 0, 0.02, 0.04, 0.06, 0.08];
+        const candidates = [],
+          threshold = Math.max(100, Math.floor(w * 0.2));
+        for (const slope of slopes) {
+          for (let y0 = 0; y0 < h; y0 += 2) {
+            let hits = 0,
+              x0 = w,
+              x1 = -1;
+            for (let x = 0; x < w; x += 2) {
+              const y = Math.round(y0 + (x - w / 2) * slope);
+              if (y < 0 || y >= h) continue;
+              const p = y * w + x;
+              if (
+                bin[p] ||
+                (y > 0 && bin[p - w]) ||
+                (y + 1 < h && bin[p + w])
+              ) {
+                hits++;
+                if (x < x0) x0 = x;
+                if (x > x1) x1 = x;
+              }
+            }
+            if (hits >= threshold && x1 - x0 >= w * 0.22)
+              candidates.push({ slope, y0, x0, x1 });
+          }
+        }
+        for (const line of candidates) {
+          for (let x = line.x0; x <= line.x1; x++) {
+            const y = Math.round(line.y0 + (x - w / 2) * line.slope);
+            for (let dy = -1; dy <= 1; dy++) {
+              const yy = y + dy;
+              if (yy >= 0 && yy < h) {
+                const p = yy * w + x;
+                // Preserve dark pen strokes crossing a lighter printed rule.
+                if (gray[p] > 135) bin[p] = 0;
+              }
+            }
+          }
+        }
+        return bin;
+      }
+
+      // 2. Connected components (8-neighbour flood fill)
+      function findBlobs(bin, w, h) {
+        const lab = new Int32Array(w * h),
+          stack = new Int32Array(w * h),
+          comps = [];
+        let id = 0;
+        for (let s = 0; s < w * h; s++) {
+          if (!bin[s] || lab[s]) continue;
+          id++;
+          let sp = 0;
+          stack[sp++] = s;
+          lab[s] = id;
+          let x0 = w,
+            y0 = h,
+            x1 = 0,
+            y1 = 0,
+            n = 0;
+          while (sp) {
+            const p = stack[--sp],
+              x = p % w,
+              y = (p / w) | 0;
+            n++;
+            if (x < x0) x0 = x;
+            if (x > x1) x1 = x;
+            if (y < y0) y0 = y;
+            if (y > y1) y1 = y;
+            for (let dy = -1; dy <= 1; dy++)
+              for (let dx = -1; dx <= 1; dx++) {
+                const nx = x + dx,
+                  ny = y + dy;
+                if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                const q = ny * w + nx;
+                if (bin[q] && !lab[q]) {
+                  lab[q] = id;
+                  stack[sp++] = q;
+                }
+              }
+          }
+          comps.push({ ids: [id], x0, y0, x1, y1, n });
+        }
+        return { lab, comps };
+      }
+
+      // 3. Remove noise/lines, merge i/j dots into their letter, group into lines
+      function organise(comps, w) {
+        comps = comps.filter((c) => c.n >= 20 && c.x1 - c.x0 < w * 0.4);
+        if (!comps.length) return { lines: [], medH: 0 };
+        const bySize = [...comps].sort((a, b) => b.n - a.n);
+        const big = bySize.slice(0, Math.ceil(bySize.length * 0.6));
+        const medH = median(big.map((c) => c.y1 - c.y0 + 1));
+        const small = comps.filter(
+          (c) => !big.includes(c) && c.y1 - c.y0 < medH * 0.4,
+        );
+        for (const d of small) {
+          let best = null,
+            bd = medH * 1.2;
+          const cx = (d.x0 + d.x1) / 2;
+          for (const b of big) {
+            if (
+              cx < b.x0 - medH * 0.2 ||
+              cx > b.x1 + medH * 0.2 ||
+              d.y1 > b.y0 + medH * 0.3
+            )
+              continue;
+            const dist = b.y0 - d.y1;
+            if (dist < bd) {
+              bd = dist;
+              best = b;
+            }
+          }
+          if (best) {
+            best.ids.push(...d.ids);
+            best.x0 = Math.min(best.x0, d.x0);
+            best.y0 = Math.min(best.y0, d.y0);
+            best.x1 = Math.max(best.x1, d.x1);
+          }
+        }
+        const items = big.sort((a, b) => a.y0 + a.y1 - (b.y0 + b.y1)),
+          lines = [];
+        for (const c of items) {
+          const cy = (c.y0 + c.y1) / 2,
+            L = lines[lines.length - 1];
+          if (L && Math.abs(cy - L.cy) < medH * 0.7) {
+            L.items.push(c);
+            L.cy =
+              L.items.reduce((s, i) => s + (i.y0 + i.y1) / 2, 0) /
+              L.items.length;
+          } else lines.push({ cy, items: [c] });
+        }
+        return {
+          lines: lines.map((l) => l.items.sort((a, b) => a.x0 - b.x0)),
+          medH,
+        };
+      }
+
+      // 4. Cut one glyph into the same format the pad uses (baseline at BASE, cap height = CAPH)
+      function cutGlyph(c, lab, w, k, base) {
+        const bw = c.x1 - c.x0 + 1,
+          bh = c.y1 - c.y0 + 1,
+          ids = new Set(c.ids);
+        const m = document.createElement("canvas");
+        m.width = bw;
+        m.height = bh;
+        const mg = m.getContext("2d"),
+          im = mg.createImageData(bw, bh);
+        for (let y = 0; y < bh; y++)
+          for (let x = 0; x < bw; x++)
+            if (ids.has(lab[(c.y0 + y) * w + c.x0 + x]))
+              im.data[(y * bw + x) * 4 + 3] = 255;
+        mg.putImageData(im, 0, 0);
+        const o = document.createElement("canvas");
+        o.width = Math.round(bw * k) + 16;
+        o.height = GH;
+        const og = o.getContext("2d");
+        og.imageSmoothingQuality = "high";
+        og.drawImage(m, 8, BASE - (base - c.y0) * k, bw * k, bh * k);
+        return o.toDataURL("image/png");
+      }
+
+      // 5. Main: photo -> glyphs. Returns a list of problems (empty = all good)
+      async function importPhoto(file, set) {
+        const bmp = await createImageBitmap(file),
+          sc = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
+        const w = Math.round(bmp.width * sc),
+          h = Math.round(bmp.height * sc);
+        const cv = document.createElement("canvas");
+        cv.width = w;
+        cv.height = h;
+        const g = cv.getContext("2d", { willReadFrequently: true });
+        g.drawImage(bmp, 0, 0, w, h);
+        const px = g.getImageData(0, 0, w, h).data,
+          gray = new Uint8Array(w * h);
+        for (let i = 0; i < w * h; i++)
+          gray[i] =
+            px[4 * i] * 0.3 + px[4 * i + 1] * 0.59 + px[4 * i + 2] * 0.11;
+
+        const ink = removeRuledLines(binarize(gray, w, h), gray, w, h);
+        const { lab, comps } = findBlobs(ink, w, h);
+        const { lines } = organise(comps, w),
+          chars = [...set],
+          report = [];
+        let added = 0;
+        if (!lines.length)
+          return ["No writing found. Use darker ink and better light."];
+
+        lines.forEach((items, li) => {
+          if (items.length !== chars.length) {
+            report.push(
+              `Line ${li + 1}: found ${items.length}, expected ${chars.length}`,
+            );
+            return;
+          }
+          const base = median(
+            items.filter((_, i) => !DESC.includes(chars[i])).map((c) => c.y1),
+          );
+          const tops = items
+            .filter((_, i) => set !== LOWER || TALL.includes(chars[i]))
+            .map((c) => c.y0);
+          const capH = base - median(tops);
+          if (capH < 10) {
+            report.push(`Line ${li + 1}: too small`);
+            return;
+          }
+          const k = CAPH / capH;
+          items.forEach((c, i) => {
+            (glyphs[chars[i]] = glyphs[chars[i]] || []).push(
+              cutGlyph(c, lab, w, k, base),
+            );
+            added++;
+          });
+        });
+        if (added) report.unshift(`Added ${added} letters`);
+        return report;
+      }
+
+      $("#photoBtn").onclick = () => $("#photoFile").click();
+      $("#photoFile").onchange = async (e) => {
+        const f = e.target.files[0];
+        if (!f) return;
+        try {
+          const rep = await importPhoto(f, $("#photoSet").value);
+          persist();
+          await loadAll();
+          renderGrid();
+          renderThumbs();
+          toast(rep.join(" | "), 5000);
+        } catch (err) {
+          toast("Could not read that photo");
+        }
+        e.target.value = "";
+      };
+
+      /* ---------- Init ---------- */
+      loadAll().then(() => {
+        renderGrid();
+        renderThumbs();
+      });
+    </script>
+  </body>
+</html>
